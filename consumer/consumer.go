@@ -38,7 +38,7 @@ func (c *consumer) read(ctx context.Context) error {
 	claim := c.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
 		Stream:   streamName,
 		Group:    c.group,
-		MinIdle:  200 * time.Millisecond,
+		MinIdle:  15 * time.Second,
 		Start:    "0-0",
 		Count:    500,
 		Consumer: c.id,
@@ -75,6 +75,7 @@ func (c *consumer) read(ctx context.Context) error {
 		return nil
 	}
 
+	log.Println("no messages to process")
 	return nil
 }
 
@@ -114,6 +115,8 @@ func (c *consumer) Start(ctx context.Context) {
 			return
 		default:
 			_ = c.read(ctx)
+			// This is just to accumulate messages
+			time.Sleep(1 * time.Second)
 		}
 	}
 }

@@ -10,8 +10,8 @@ import (
 )
 
 const bucket = "zenskar"
-const accessKeyID = "****"
-const accessSecretKey = "****"
+const accessKeyID = "******"
+const accessSecretKey = "*******"
 const region = "asia-south2"
 const endpoint = "storage.googleapis.com"
 
@@ -31,7 +31,7 @@ func NewS3Client(prefix string) *s3Client {
 
 func (s *s3Client) upload(key string, r io.Reader) error {
 	uploader := s3manager.NewUploader(s.session, func(u *s3manager.Uploader) {
-		u.PartSize = 32 * 1024 * 1024 // 32MB per part
+		u.PartSize = 8 * 1024 * 1024 // 8MB per part
 	})
 	keyWithPrefix := path.Join("/", s.prefix, key)
 	input := &s3manager.UploadInput{

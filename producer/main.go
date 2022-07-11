@@ -40,7 +40,7 @@ func (p *producer) Start(ctx context.Context) {
 		case <-p.done:
 			return
 		default:
-			d := make([]byte, 1024)
+			d := make([]byte, 1024*1024)
 			_, _ = rand.Read(d)
 			id, err := p.send(ctx, d)
 			if err != nil {
@@ -49,7 +49,7 @@ func (p *producer) Start(ctx context.Context) {
 				log.Printf("message sent with id %s\n", id)
 			}
 
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
@@ -61,7 +61,7 @@ func NewProducer(client *redis.Client) *producer {
 func main() {
 	client := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
-		DB:   4, // use default DB
+		DB:   4,
 	})
 	p := NewProducer(client)
 
