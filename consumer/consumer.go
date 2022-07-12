@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"io"
 	"log"
 	"strconv"
 	"time"
@@ -40,7 +40,7 @@ func (c *consumer) read(ctx context.Context) error {
 		Group:    c.group,
 		MinIdle:  15 * time.Second,
 		Start:    "0-0",
-		Count:    500,
+		Count:    50,
 		Consumer: c.id,
 	})
 
@@ -81,31 +81,31 @@ func (c *consumer) read(ctx context.Context) error {
 
 func (c *consumer) processMessages(msgs []redis.XMessage) error {
 	log.Printf("processing %d messages", len(msgs))
-	processIds := make([]string, 0)
-	pr, pw := io.Pipe()
-	go func() {
-		defer pw.Close()
-		for _, m := range msgs {
-			ts, _ := strconv.ParseInt(m.Values["ts"].(string), 10, 64)
-			r := record{
-				ID:         m.Values["id"].(string),
-				ProducedAt: ts,
-				Data:       []byte(m.Values["data"].(string)),
-			}
-			b, _ := json.Marshal(r)
-			_, _ = pw.Write(b)
-			processIds = append(processIds, m.ID)
+	processIds := make([]string, len(msgs))
+	records := make([]record, len(msgs))
+	for i, m := range msgs {
+		ts, _ := strconv.ParseInt(m.Values["ts"].(string), 10, 64)
+		r := record{
+			ID:         m.Values["id"].(string),
+			ProducedAt: ts,
+			Data:       []byte(m.Values["data"].(string)),
 		}
-	}()
+		records[i] = r
+		processIds[i] = m.ID
+	}
+	b, _ := json.Marshal(records)
+
 	//TODO : handle name collision
 	key := fmt.Sprintf("z_%d.json", time.Now().UnixMilli())
 
-	// Error handling
-	_ = c.s3Client.upload(key, pr)
+	//TODO: Error handling
+	_ = c.s3Client.upload(key, bytes.NewReader(b))
+
+	// TODO: There is chance that messages are not acked and redelivered again,
+	// to do this we can introduce some deduping here
 	log.Printf("acking %d ids %v", len(processIds), processIds)
 	c.rdb.XAck(context.TODO(), streamName, c.group, processIds...)
 	return nil
-
 }
 
 func (c *consumer) Start(ctx context.Context) {
